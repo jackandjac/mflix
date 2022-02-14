@@ -1,5 +1,6 @@
 package mflix.api.daos;
 
+import com.mongodb.MongoException;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.*;
@@ -48,7 +49,16 @@ public class MovieDao extends AbstractMFlixDao {
         //TODO> Ticket: Handling Errors - implement a way to catch a
         //any potential exceptions thrown while validating a movie id.
         //Check out this method's use in the method that follows.
-        return true;
+
+        Document movie=null;
+        try {
+            Bson queryFilter = Filters.eq("_id",new ObjectId(movieId));
+            movie  = moviesCollection.find(queryFilter).first();
+        }catch(Exception e){
+            System.out.println(e.getStackTrace());
+        }
+
+        return null != movie;
     }
 
     /**
@@ -69,6 +79,29 @@ public class MovieDao extends AbstractMFlixDao {
         pipeline.add(match);
         // TODO> Ticket: Get Comments - implement the lookup stage that allows the comments to
         // retrieved with Movies.
+//        Document lookupStage = new Document("$lookup",
+//                new Document("from", "comments")
+//                        .append("let",
+//                                new Document("id", "$_id"))
+//                        .append("pipeline", Arrays.asList(new Document("$match",
+//                                        new Document("$expr",
+//                                                new Document("$eq", Arrays.asList("$movie_id", "$$id")))),
+//                                new Document("$sort",
+//                                        new Document("date", -1L))))
+//                        .append("as", "comments"));
+
+        List<Bson> innerPipeline = new ArrayList<>();
+        Variable<String> m_id = new Variable<>("m_id","$_id");
+        List<Variable<String>> letVariables= new ArrayList<>();
+        letVariables.add(m_id);
+        Bson innerMatchStage = Aggregates.match(Filters.expr(Document.parse("{ $eq: ['$movie_id', '$$m_id'] }")));
+        Bson innerSortStage = Aggregates.sort(Sorts.descending("date"));
+        innerPipeline.add(innerMatchStage);
+        innerPipeline.add(innerSortStage);
+
+        Bson lookupStage = Aggregates.lookup("comments",letVariables,innerPipeline,"comments");
+        pipeline.add(lookupStage);
+
         Document movie = moviesCollection.aggregate(pipeline).first();
 
         return movie;

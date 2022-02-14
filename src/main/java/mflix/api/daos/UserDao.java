@@ -62,7 +62,13 @@ public class UserDao extends AbstractMFlixDao {
      */
     public boolean addUser(User user) {
         //TODO > Ticket: Durable Writes -  you might want to use a more durable write concern here!
-        usersCollection.insertOne(user);
+            Bson queryFilter = Filters.eq("email",user.getEmail());
+            User usr = usersCollection.find(queryFilter).iterator().tryNext();
+            if(usr != null){
+                throw new IncorrectDaoOperation("user already exists");
+            }else {
+                usersCollection.insertOne(user);
+            }
         return true;
         //TODO > Ticket: Handling Errors - make sure to only add new users
         // and not users that already exist.
@@ -80,17 +86,9 @@ public class UserDao extends AbstractMFlixDao {
         //TODO> Ticket: User Management - implement the method that allows session information to be
         // stored in it's designated collection.
         Document session = new Document("user_id", userId).append("jwt",jwt);
-        Document unexpected = sessionsCollection.find(session).iterator().tryNext();
-        if(null == unexpected){
-            sessionsCollection.insertOne(session);
-            if(null !=session.getObjectId("_id")){
-                return true;
-            }else{
-                return false;
-            }
-        }else{
-            return false;
-        }
+        sessionsCollection.updateOne(Filters.eq("user_id",userId),Updates.set("jwt",jwt),new UpdateOptions().upsert(true));
+        Document sess = sessionsCollection.find(Filters.eq("user_id",userId)).iterator().tryNext();
+        return sess.get("jwt").equals(jwt);
 
     }
 
@@ -159,7 +157,10 @@ public class UserDao extends AbstractMFlixDao {
         // be updated.
         //TODO > Ticket: Handling Errors - make this method more robust by
         // handling potential exceptions when updating an entry.
-        return false;
+        if(null == userPreferences) throw new IncorrectDaoOperation("user preferences cannot be null");
+        usersCollection.updateOne(Filters.eq("email",email),Updates.set("preferences",userPreferences));
+        User userUpdated = usersCollection.find(Filters.eq("email",email)).iterator().tryNext();
+        return userUpdated.getPreferences().keySet().size() == userPreferences.keySet().size();
     }
     private Session fromSessionDocument(Document sessionDoc){
         Session session = new Session();

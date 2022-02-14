@@ -4,6 +4,7 @@ import com.mongodb.client.MongoClient;
 import mflix.api.models.User;
 import mflix.config.MongoDBConfiguration;
 import org.bson.Document;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -58,5 +59,9 @@ public class HandlingErrorsTest extends TicketTest {
     uDao.addUser(testUser);
     // checks if user was able to be created again
     uDao.addUser(testUser);
+  }
+  @After
+  public void tearDown(){
+    uDao.deleteUser(this.testUser.getEmail());
   }
 }

@@ -43,7 +43,7 @@ public class UpdateCreateCommentTest extends TicketTest {
     this.dao = new CommentDao(mongoClient, databaseName);
 
     this.notValidEmail = "hello@notvalid.io";
-    this.validEmail = "hello@valid.io";
+    this.validEmail = "christopher_robinson@fakegmail.com";
     this.fakeCommentId = this.dao.generateObjectId().toHexString();
     removeFakeComment(this.fakeCommentId);
   }
@@ -88,19 +88,14 @@ public class UpdateCreateCommentTest extends TicketTest {
         "Should be able to update his own comments. Check updateComment implementation",
         dao.updateComment(fakeComment.getId(), expectedCommentText, validEmail));
 
-    Document actualComment =
-        (Document)
-            commentsCollection()
-                .find(new Document("_id", new ObjectId(fakeCommentId)))
-                .first();
-
+    Comment actualComment = dao.getComment(fakeCommentId);
     Assert.assertEquals(
         "Comment text should match. Check updateComment implementation",
         expectedCommentText,
-        actualComment.getString("text"));
+        actualComment.getText());
 
     Assert.assertEquals("Commenter email should match the user email",
-            validEmail, actualComment.getString("email"));
+            validEmail, actualComment.getEmail());
   }
 
   @Test
@@ -129,7 +124,7 @@ public class UpdateCreateCommentTest extends TicketTest {
         dao.addComment(expectedComment));
 
     Document actualComment =
-        (Document) commentsCollection().find(Filters.eq("_id", expectedComment.getOid())).first();
+        (Document) commentsCollection().find(Filters.eq("_id", new ObjectId(expectedComment.getId()))).first();
 
     Assert.assertNotNull("Comment should be found. Check your addComment method", actualComment);
 
@@ -151,9 +146,10 @@ public class UpdateCreateCommentTest extends TicketTest {
 
   @Test
   public void testAddCommentUsingObjectId() {
-    String id = "619e483309f8c99feb5c87a2";
-    Comment comment = dao.getComment(id);
-
-    Assert.assertNotNull(comment);
+    String id = fakeCommentId;
+    Comment comment = fakeCommentWithId();
+    dao.addComment(comment);
+    Comment commentUpdated = dao.getComment(id);
+    Assert.assertNotNull(commentUpdated);
   }
 }
